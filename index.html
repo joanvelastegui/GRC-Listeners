@@ -1,0 +1,658 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>GRC Radio — Listener Tracker</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Sora:wght@400;500;600&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #0f1117;
+      --surface: #171b24;
+      --surface2: #1e2433;
+      --border: rgba(255,255,255,0.08);
+      --border2: rgba(255,255,255,0.14);
+      --text: #e8eaf0;
+      --muted: #7a8099;
+      --accent: #3b82f6;
+      --accent2: #22d3ee;
+      --accent3: #a78bfa;
+      --green: #34d399;
+      --amber: #fbbf24;
+      --red: #f87171;
+      --font: 'Sora', sans-serif;
+      --mono: 'DM Mono', monospace;
+    }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--font);
+      font-size: 14px;
+      min-height: 100vh;
+      padding: 0;
+    }
+
+    /* HEADER */
+    .header {
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      padding: 20px 32px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+    .header-left { display: flex; align-items: center; gap: 14px; }
+    .logo-dot {
+      width: 10px; height: 10px; border-radius: 50%;
+      background: var(--green);
+      box-shadow: 0 0 8px var(--green);
+      animation: pulse 2s ease-in-out infinite;
+    }
+    .logo-dot.inactive { background: var(--muted); box-shadow: none; animation: none; }
+    @keyframes pulse { 0%,100%{opacity:1;} 50%{opacity:0.4;} }
+    .header h1 { font-size: 15px; font-weight: 600; letter-spacing: 0.02em; }
+    .header-subtitle { font-size: 11px; color: var(--muted); font-family: var(--mono); }
+
+    .header-right { display: flex; align-items: center; gap: 10px; }
+    .badge {
+      font-family: var(--mono);
+      font-size: 11px;
+      padding: 4px 10px;
+      border-radius: 20px;
+      border: 1px solid var(--border2);
+      color: var(--muted);
+    }
+    .badge.active { border-color: rgba(52,211,153,0.4); color: var(--green); background: rgba(52,211,153,0.07); }
+
+    /* MAIN LAYOUT */
+    .main { max-width: 1100px; margin: 0 auto; padding: 28px 24px; }
+
+    /* STATUS CARDS */
+    .cards-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px,1fr)); gap: 12px; margin-bottom: 28px; }
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 16px 20px;
+      position: relative;
+      overflow: hidden;
+    }
+    .card::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      height: 2px;
+      background: var(--card-accent, var(--accent));
+    }
+    .card-label { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 8px; }
+    .card-value { font-size: 26px; font-weight: 600; font-family: var(--mono); line-height: 1; }
+    .card-sub { font-size: 11px; color: var(--muted); margin-top: 4px; font-family: var(--mono); }
+
+    /* SCHEDULE BAR */
+    .schedule-bar {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 16px 20px;
+      margin-bottom: 28px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 12px;
+    }
+    .schedule-info { display: flex; align-items: center; gap: 20px; flex-wrap: wrap; gap: 12px; }
+    .schedule-item { font-size: 12px; color: var(--muted); font-family: var(--mono); }
+    .schedule-item span { color: var(--text); }
+    .btn {
+      font-family: var(--font);
+      font-size: 12px;
+      font-weight: 500;
+      padding: 7px 16px;
+      border-radius: 8px;
+      border: 1px solid var(--border2);
+      background: var(--surface2);
+      color: var(--text);
+      cursor: pointer;
+      transition: background 0.15s, border-color 0.15s;
+    }
+    .btn:hover { background: rgba(255,255,255,0.07); border-color: rgba(255,255,255,0.2); }
+    .btn.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+    .btn.primary:hover { background: #2563eb; }
+    .btn.success { background: rgba(52,211,153,0.12); border-color: rgba(52,211,153,0.35); color: var(--green); }
+    .btn.success:hover { background: rgba(52,211,153,0.2); }
+    .btn-row { display: flex; gap: 8px; }
+
+    /* SECTION TITLE */
+    .section-title {
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      color: var(--muted);
+      margin-bottom: 12px;
+      padding-bottom: 8px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    /* CHART */
+    .chart-wrap {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 20px;
+      margin-bottom: 28px;
+    }
+    .chart-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; }
+    .chart-legend { display: flex; gap: 16px; flex-wrap: wrap; }
+    .legend-item { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--muted); }
+    .legend-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+    #chartCanvas { width: 100%; }
+
+    /* HISTORY TABLE */
+    .table-wrap {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      overflow: hidden;
+      margin-bottom: 28px;
+    }
+    .table-header-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 14px 20px;
+      border-bottom: 1px solid var(--border);
+    }
+    table { width: 100%; border-collapse: collapse; }
+    thead th {
+      font-size: 11px;
+      font-weight: 500;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.07em;
+      padding: 10px 16px;
+      text-align: left;
+      border-bottom: 1px solid var(--border);
+      background: var(--surface);
+    }
+    tbody tr { border-bottom: 1px solid var(--border); transition: background 0.1s; }
+    tbody tr:last-child { border-bottom: none; }
+    tbody tr:hover { background: rgba(255,255,255,0.03); }
+    tbody td {
+      padding: 11px 16px;
+      font-size: 12px;
+      vertical-align: middle;
+    }
+    td.mono { font-family: var(--mono); }
+    td.timestamp { color: var(--muted); font-family: var(--mono); font-size: 11px; }
+    .pill {
+      display: inline-block;
+      font-family: var(--mono);
+      font-size: 11px;
+      padding: 2px 8px;
+      border-radius: 20px;
+      background: rgba(59,130,246,0.12);
+      color: #60a5fa;
+      border: 1px solid rgba(59,130,246,0.25);
+    }
+    .pill.peak { background: rgba(167,139,250,0.12); color: #c4b5fd; border-color: rgba(167,139,250,0.25); }
+    .empty-state {
+      text-align: center;
+      padding: 40px 20px;
+      color: var(--muted);
+      font-size: 13px;
+    }
+    .empty-state .big { font-size: 28px; margin-bottom: 8px; }
+
+    /* FETCH STATUS */
+    .fetch-status {
+      font-size: 11px;
+      font-family: var(--mono);
+      padding: 4px 10px;
+      border-radius: 6px;
+    }
+    .fetch-status.ok { background: rgba(52,211,153,0.1); color: var(--green); }
+    .fetch-status.err { background: rgba(248,113,113,0.1); color: var(--red); }
+
+    /* NEXT FETCH COUNTDOWN */
+    #countdownDisplay {
+      font-family: var(--mono);
+      font-size: 12px;
+      color: var(--accent2);
+    }
+
+    /* SPINNER */
+    .spinner {
+      display: inline-block;
+      width: 14px; height: 14px;
+      border: 2px solid rgba(255,255,255,0.1);
+      border-top-color: var(--accent);
+      border-radius: 50%;
+      animation: spin 0.7s linear infinite;
+      vertical-align: middle;
+      margin-right: 6px;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    .hidden { display: none !important; }
+
+    @media (max-width: 600px) {
+      .header { padding: 14px 16px; }
+      .main { padding: 16px 12px; }
+      .cards-row { grid-template-columns: 1fr 1fr; }
+    }
+  </style>
+</head>
+<body>
+
+<header class="header">
+  <div class="header-left">
+    <div class="logo-dot inactive" id="liveDot"></div>
+    <div>
+      <h1>GRC Radio — Listener Tracker</h1>
+      <div class="header-subtitle">Automated capture · hourly · 6:00 AM – 11:00 PM ET</div>
+    </div>
+  </div>
+  <div class="header-right">
+    <div class="badge active" id="scheduleBadge">Scheduler active</div>
+    <div id="countdownDisplay">—</div>
+  </div>
+</header>
+
+<main class="main">
+
+  <!-- METRIC CARDS -->
+  <div class="cards-row">
+    <div class="card" style="--card-accent: #3b82f6;">
+      <div class="card-label">Total fetches</div>
+      <div class="card-value" id="metricFetches">0</div>
+      <div class="card-sub">since page load</div>
+    </div>
+    <div class="card" style="--card-accent: #34d399;">
+      <div class="card-label">Last total listeners</div>
+      <div class="card-value" id="metricListeners">—</div>
+      <div class="card-sub" id="metricListenersSub">across all streams</div>
+    </div>
+    <div class="card" style="--card-accent: #a78bfa;">
+      <div class="card-label">Session peak</div>
+      <div class="card-value" id="metricPeak">—</div>
+      <div class="card-sub">highest single-stream peak</div>
+    </div>
+    <div class="card" style="--card-accent: #fbbf24;">
+      <div class="card-label">Next fetch</div>
+      <div class="card-value" id="metricNext" style="font-size:16px; padding-top:5px;">—</div>
+      <div class="card-sub" id="metricNextSub">ET</div>
+    </div>
+  </div>
+
+  <!-- CONTROLS -->
+  <div class="schedule-bar">
+    <div class="schedule-info">
+      <div class="schedule-item">Schedule: <span>Every hour · 6:00 AM – 11:00 PM ET</span></div>
+      <div class="schedule-item" id="lastFetchInfo">Last fetch: <span>—</span></div>
+    </div>
+    <div class="btn-row">
+      <button class="btn primary" id="fetchNowBtn" onclick="fetchNow()">
+        <span id="fetchBtnLabel">Fetch now</span>
+      </button>
+      <button class="btn success" onclick="exportCSV()">Export CSV</button>
+    </div>
+  </div>
+
+  <!-- CHART -->
+  <div class="chart-wrap">
+    <div class="chart-header">
+      <div class="section-title" style="margin:0; border:none; padding:0;">Listener trend</div>
+      <div class="chart-legend" id="chartLegend"></div>
+    </div>
+    <div style="position:relative; height: 240px;">
+      <canvas id="chartCanvas" role="img" aria-label="Line chart of listener counts per stream over time">No data yet.</canvas>
+    </div>
+  </div>
+
+  <!-- HISTORY TABLE -->
+  <div class="table-wrap">
+    <div class="table-header-row">
+      <div class="section-title" style="margin:0; border:none; padding:0;">Fetch history</div>
+      <span id="rowCount" style="font-size:11px; color:var(--muted); font-family:var(--mono);">0 records</span>
+    </div>
+    <div id="tableContainer">
+      <div class="empty-state">
+        <div class="big">📻</div>
+        No data yet — fetch will run automatically at the next scheduled time,<br>or click <strong>Fetch now</strong> to capture immediately.
+      </div>
+    </div>
+  </div>
+
+</main>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<script>
+// ─── CONFIG ────────────────────────────────────────────────────────────[...]
+const STREAMS = [
+  { url: "https://radio.kapchosting.com:7052/status-json.xsl", id: "7052" },
+  { url: "https://radio.kapchosting.com:7055/status-json.xsl", id: "7055" },
+  { url: "https://radio.kapchosting.com:7056/status-json.xsl", id: "7056" }
+];
+
+const SCHEDULE_HOURS = [6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23]; // ET hourly 6AM–11PM
+const COLORS = ["#3b82f6", "#34d399", "#a78bfa"];
+const DASH_PATTERNS = [[], [6,3], [2,4]];
+
+// ─── STATE ────────────────────────────────────────────────────────────�[...]
+let history = []; // [{timestamp, streams:[{id,name,desc,listeners,peak,status}]}]
+let fetchCount = 0;
+let sessionPeak = 0;
+let chart = null;
+let isFetching = false;
+
+// ─── STREAM NAMES (built from first fetch) ────────────────────────────────────
+let streamNames = { "7052": "Port 7052", "7055": "Port 7055", "7056": "Port 7056" };
+
+// ─── FETCH ────────────────────────────────────────────────────────────�[...]
+async function fetchStream(stream) {
+  try {
+    const res = await fetch(stream.url);
+    const data = await res.json();
+    let src = data.icestats.source;
+    if (Array.isArray(src)) src = src[0];
+    return {
+      id: stream.id,
+      name: src.server_name || stream.id,
+      desc: src.server_description || "",
+      listeners: Number(src.listeners) || 0,
+      peak: Number(src.listener_peak) || 0,
+      streamStart: src.stream_start || "",
+      status: "ok"
+    };
+  } catch (e) {
+    return { id: stream.id, name: streamNames[stream.id], desc: "", listeners: 0, peak: 0, streamStart: "", status: "error" };
+  }
+}
+
+async function fetchAll(manual = false) {
+  if (isFetching) return;
+  isFetching = true;
+  document.getElementById("fetchBtnLabel").innerHTML = '<span class="spinner"></span>Fetching…';
+  document.getElementById("fetchNowBtn").disabled = true;
+  document.getElementById("liveDot").classList.remove("inactive");
+
+  const timestamp = new Date();
+  const results = await Promise.all(STREAMS.map(fetchStream));
+
+  results.forEach(r => { if (r.status === "ok") streamNames[r.id] = r.name; });
+
+  const entry = { timestamp, streams: results };
+  history.push(entry);
+  fetchCount++;
+
+  const totalListeners = results.reduce((s, r) => s + r.listeners, 0);
+  const maxPeak = Math.max(...results.map(r => r.peak));
+  if (maxPeak > sessionPeak) sessionPeak = maxPeak;
+
+  updateMetrics(totalListeners, timestamp);
+  renderTable();
+  renderChart();
+
+  isFetching = false;
+  document.getElementById("fetchBtnLabel").textContent = "Fetch now";
+  document.getElementById("fetchNowBtn").disabled = false;
+  document.getElementById("liveDot").classList.add("inactive");
+  document.getElementById("lastFetchInfo").innerHTML = `Last fetch: <span>${formatTime(timestamp)}</span>`;
+}
+
+function fetchNow() { fetchAll(true); }
+
+// ─── METRICS ───────────────────────────────────────────────────────────��[...]
+function updateMetrics(totalListeners, timestamp) {
+  document.getElementById("metricFetches").textContent = fetchCount;
+  document.getElementById("metricListeners").textContent = totalListeners;
+  document.getElementById("metricPeak").textContent = sessionPeak === 0 ? "—" : sessionPeak;
+}
+
+// ─── CHART ────────────────────────────────────────────────────────────�[...]
+function renderChart() {
+  const labels = history.map(e => formatTimeShort(e.timestamp));
+  const datasets = STREAMS.map((stream, i) => ({
+    label: streamNames[stream.id],
+    data: history.map(e => {
+      const s = e.streams.find(x => x.id === stream.id);
+      return s ? s.listeners : null;
+    }),
+    borderColor: COLORS[i],
+    backgroundColor: COLORS[i] + "22",
+    pointBackgroundColor: COLORS[i],
+    pointRadius: 5,
+    pointHoverRadius: 7,
+    borderWidth: 2,
+    borderDash: DASH_PATTERNS[i],
+    tension: 0.35,
+    fill: false
+  }));
+
+  if (chart) {
+    chart.data.labels = labels;
+    chart.data.datasets = datasets;
+    chart.update();
+  } else {
+    chart = new Chart(document.getElementById("chartCanvas"), {
+      type: "line",
+      data: { labels, datasets },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: { display: false },
+          tooltip: {
+            backgroundColor: "#1e2433",
+            borderColor: "rgba(255,255,255,0.12)",
+            borderWidth: 1,
+            titleColor: "#e8eaf0",
+            bodyColor: "#7a8099",
+            padding: 10,
+            titleFont: { family: "'DM Mono', monospace", size: 11 },
+            bodyFont: { family: "'DM Mono', monospace", size: 11 }
+          }
+        },
+        scales: {
+          x: {
+            grid: { color: "rgba(255,255,255,0.05)" },
+            ticks: { color: "#7a8099", font: { family: "'DM Mono', monospace", size: 10 }, maxRotation: 45, autoSkip: false }
+          },
+          y: {
+            grid: { color: "rgba(255,255,255,0.05)" },
+            ticks: { color: "#7a8099", font: { family: "'DM Mono', monospace", size: 10 } },
+            beginAtZero: true
+          }
+        }
+      }
+    });
+  }
+
+  // Custom legend
+  const legendEl = document.getElementById("chartLegend");
+  legendEl.innerHTML = STREAMS.map((s, i) =>
+    `<div class="legend-item">
+      <div class="legend-dot" style="background:${COLORS[i]};"></div>
+      <span>${streamNames[s.id]}</span>
+    </div>`
+  ).join("");
+}
+
+// ─── TABLE ────────────────────────────────────────────────────────────�[...]
+function renderTable() {
+  const container = document.getElementById("tableContainer");
+  document.getElementById("rowCount").textContent = `${history.length * STREAMS.length} records`;
+
+  if (history.length === 0) {
+    container.innerHTML = `<div class="empty-state"><div class="big">📻</div>No data yet.</div>`;
+    return;
+  }
+
+  const rows = [...history].reverse().flatMap(entry =>
+    entry.streams.map(s => ({ timestamp: entry.timestamp, ...s }))
+  );
+
+  container.innerHTML = `
+    <table>
+      <thead>
+        <tr>
+          <th>Timestamp (ET)</th>
+          <th>Stream</th>
+          <th>Description</th>
+          <th>Listeners</th>
+          <th>Peak</th>
+          <th>Status</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${rows.map(r => `
+          <tr>
+            <td class="timestamp">${formatTimestamp(r.timestamp)}</td>
+            <td class="mono" style="color:var(--text)">${escHtml(r.name)}</td>
+            <td style="color:var(--muted); max-width:220px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${escHtml(r.desc)}</td>
+            <td><span class="pill">${r.listeners}</span></td>
+            <td><span class="pill peak">${r.peak}</span></td>
+            <td><span class="fetch-status ${r.status === 'ok' ? 'ok' : 'err'}">${r.status === 'ok' ? 'OK' : 'error'}</span></td>
+          </tr>
+        `).join("")}
+      </tbody>
+    </table>
+  `;
+}
+
+// ─── CSV EXPORT ──────────────────────────────────────────────────────────��[...]
+function exportCSV() {
+  if (history.length === 0) { alert("No data to export yet."); return; }
+  const rows = [["Timestamp ET","Stream ID","Stream Name","Description","Listeners","Peak","Status"]];
+  history.forEach(entry => {
+    entry.streams.forEach(s => {
+      rows.push([
+        formatTimestamp(entry.timestamp),
+        s.id, s.name, s.desc, s.listeners, s.peak, s.status
+      ]);
+    });
+  });
+  const csv = rows.map(r => r.map(v => `"${String(v).replace(/"/g,'""')}"`).join(",")).join("\n");
+  const blob = new Blob([csv], { type: "text/csv" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `grc_listeners_${formatFilename(new Date())}.csv`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+// ─── SCHEDULER ───────────────────────────────────────────────────────────[...]
+function getNextScheduledET() {
+  const now = new Date();
+  const etOffset = getETOffsetMs();
+  const etNow = new Date(now.getTime() + etOffset);
+  const etH = etNow.getUTCHours();
+  const etM = etNow.getUTCMinutes();
+  const etS = etNow.getUTCSeconds();
+
+  for (const h of SCHEDULE_HOURS) {
+    if (h > etH || (h === etH && (etM > 0 || etS > 0))) {
+      const next = new Date(etNow);
+      next.setUTCHours(h, 0, 0, 0);
+      return new Date(next.getTime() - etOffset);
+    }
+  }
+  // Next day 6 AM
+  const next = new Date(etNow);
+  next.setUTCDate(next.getUTCDate() + 1);
+  next.setUTCHours(SCHEDULE_HOURS[0], 0, 0, 0);
+  return new Date(next.getTime() - etOffset);
+}
+
+function getETOffsetMs() {
+  // Approximate ET offset (handles DST roughly: Mar–Nov = -4h, else -5h)
+  const now = new Date();
+  const jan = new Date(now.getFullYear(), 0, 1);
+  const jul = new Date(now.getFullYear(), 6, 1);
+  const stdOffset = Math.max(jan.getTimezoneOffset(), jul.getTimezoneOffset());
+  const isDST = now.getTimezoneOffset() < stdOffset;
+  const localOffsetMin = now.getTimezoneOffset(); // minutes behind UTC
+  const etOffsetMin = isDST ? 240 : 300; // EDT=-4h, EST=-5h
+  // Convert to UTC: UTC = local + localOffset; ET = UTC - etOffset
+  return -(etOffsetMin * 60 * 1000); // ms to add to UTC to get ET
+}
+
+function tickScheduler() {
+  const now = new Date();
+  const next = getNextScheduledET();
+  const diff = next - now;
+
+  // Show next fetch time in ET
+  const etOffset = getETOffsetMs();
+  const nextET = new Date(next.getTime() + etOffset);
+  const hh = String(nextET.getUTCHours()).padStart(2,"0");
+  const mm = String(nextET.getUTCMinutes()).padStart(2,"0");
+  document.getElementById("metricNext").textContent = `${hh}:${mm}`;
+  document.getElementById("metricNextSub").textContent = "ET scheduled";
+
+  // Countdown
+  const totalSec = Math.max(0, Math.floor(diff / 1000));
+  const h = Math.floor(totalSec / 3600);
+  const m = Math.floor((totalSec % 3600) / 60);
+  const s = totalSec % 60;
+  const cd = h > 0
+    ? `${h}h ${String(m).padStart(2,"0")}m`
+    : `${String(m).padStart(2,"0")}:${String(s).padStart(2,"0")}`;
+  document.getElementById("countdownDisplay").textContent = `next in ${cd}`;
+
+  // Trigger if within this tick's window (within 30s of schedule, haven't fetched yet)
+  if (diff <= 30000 && diff >= 0) {
+    const etNow = new Date(now.getTime() + etOffset);
+    const etH = etNow.getUTCHours();
+    const etM = etNow.getUTCMinutes();
+    if (SCHEDULE_HOURS.includes(etH) && etM === 0) {
+      fetchAll();
+    }
+  }
+}
+
+// ─── HELPERS ───────────────────────────────────────────────────────────��[...]
+function padZ(n) { return String(n).padStart(2,"0"); }
+
+function formatTimestamp(d) {
+  const etOffset = getETOffsetMs();
+  const et = new Date(d.getTime() + etOffset);
+  return `${et.getUTCFullYear()}-${padZ(et.getUTCMonth()+1)}-${padZ(et.getUTCDate())} `
+       + `${padZ(et.getUTCHours())}:${padZ(et.getUTCMinutes())}:${padZ(et.getUTCSeconds())}`;
+}
+
+function formatTime(d) {
+  const etOffset = getETOffsetMs();
+  const et = new Date(d.getTime() + etOffset);
+  return `${padZ(et.getUTCHours())}:${padZ(et.getUTCMinutes())} ET`;
+}
+
+function formatTimeShort(d) {
+  const etOffset = getETOffsetMs();
+  const et = new Date(d.getTime() + etOffset);
+  return `${padZ(et.getUTCHours())}:${padZ(et.getUTCMinutes())}`;
+}
+
+function formatFilename(d) {
+  return `${d.getFullYear()}${padZ(d.getMonth()+1)}${padZ(d.getDate())}_${padZ(d.getHours())}${padZ(d.getMinutes())}`;
+}
+
+function escHtml(s) {
+  return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
+}
+
+// ─── INIT ────────────────────────────────────────────────────────────��[...]
+tickScheduler();
+setInterval(tickScheduler, 1000);
+</script>
+</body>
+</html>
